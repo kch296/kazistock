@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#3D348B">
+<meta name="description" content="مراقبة المخزن — تطبيق ويب يعمل دون إنترنت">
+<title>مخزني</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+
+<!-- ══════════════════════════ شاشة المسح ══════════════════════════ -->
+<section id="viewScan" class="view">
+
+  <video id="video" playsinline muted autoplay disablepictureinpicture></video>
+
+  <!-- إطار الزوايا: بلا حجاب مظلم، فظليل الملصق يُفسد القراءة -->
+  <div class="brackets" id="brackets" aria-hidden="true">
+    <i class="c tl"></i><i class="c tr"></i><i class="c bl"></i><i class="c br"></i>
+  </div>
+  <!-- منطقة القراءة: هذا ما يمر إلى محرّك القراءة -->
+  <div class="roi" id="roi" aria-hidden="true"></div>
+
+  <!-- الشريط العلوي: حالة المحرّك + أزرار -->
+  <header class="scanTop">
+    <button id="btnLang" class="iconBtn" title="اللغة">🌐</button>
+    <div id="engineChip" class="chip">
+      <span class="dot" id="engineDot"></span><span id="engineText">…</span>
+    </div>
+    <button id="btnList" class="iconBtn" title="المخزن">📦</button>
+  </header>
+
+  <!-- بطاقة القراءة: تظهر عند النجاح، ثم تختفي تلقائيًا -->
+  <div id="flash" class="flash" aria-live="polite">
+    <div class="flashNum" id="flashNum">0000000</div>
+    <div class="flashRows" id="flashRows"></div>
+  </div>
+
+  <!-- بوابة البدء: زر واحد، لأن المتصفحات تشترط لمسة بشرية لفتح الكاميرا -->
+  <div id="gate" class="gate">
+    <div class="gateBox">
+      <div class="gateIcon">📷</div>
+      <div class="gateTitle" id="gateTitle">مراقبة المخزن</div>
+      <div class="gateSub" id="gateSub">وجّه الكاميرا نحو الملصق — يُقرأ ويُسجَّل تلقائيًا</div>
+      <button id="btnStart" class="bigBtn">ابدأ</button>
+      <div class="gateNote" id="gateNote">لا يغادر شيء هاتفك. لا إنترنت، لا خادم.</div>
+    </div>
+  </div>
+
+  <!-- الشريط السفلي: آخر ما قُرئ + العدد + الأدوات -->
+  <footer class="scanBottom" id="scanBottom">
+    <div class="strip" id="strip"></div>
+    <div class="row">
+      <button id="btnTorch" class="iconBtn" title="الإضاءة">🔦</button>
+      <div class="counter"><span id="countBig">0</span></div>
+      <button id="btnManual" class="iconBtn" title="إدخال يدوي">⌨️</button>
+    </div>
+  </footer>
+</section>
+
+<!-- ══════════════════════════ شاشة المخزن ══════════════════════════ -->
+<section id="viewList" class="view hidden">
+  <header class="listTop">
+    <button id="btnBack" class="iconBtn">‹</button>
+    <h1 id="listTitle">المخزن</h1>
+    <button id="btnExport" class="iconBtn" title="تصدير">⬇</button>
+  </header>
+
+  <div class="summary" id="summary">
+    <div class="sumRow">
+      <span class="sumLabel" id="sumLabel">في المخزن</span>
+      <span class="sumCount" id="sumCount">0</span>
+    </div>
+    <div class="sumValue" id="sumValue">0,00 DA</div>
+    <button class="sumAlert" id="btnAlertLine"></button>
+  </div>
+
+  <nav class="tabs" id="tabs">
+    <button class="tab on" data-tab="in">المخزن</button>
+    <button class="tab" data-tab="alert">تنبيهات</button>
+    <button class="tab" data-tab="out">السجل</button>
+  </nav>
+
+  <ul class="items" id="items"></ul>
+</section>
+
+<!-- ══════════════════════════ لوحة التحرير ══════════════════════════ -->
+<div id="sheetMask" class="sheetMask hidden"></div>
+<div id="sheet" class="sheet hidden" role="dialog" aria-modal="true">
+  <div class="sheetInner">
+    <div class="sheetHead">
+      <h2 id="sheetTitle">تفاصيل</h2>
+      <button id="btnSheetClose" class="iconBtn">✕</button>
+    </div>
+
+    <div class="sheetBody">
+      <label class="fld">
+        <span>رقم التتبع</span>
+        <input id="fTracking" inputmode="numeric" autocomplete="off" class="mono big">
+      </label>
+
+      <div class="rawBox hidden" id="rawBox">
+        <div class="rawHead">النص المقروء من الملصق</div>
+        <pre id="rawText"></pre>
+      </div>
+
+      <label class="fld">
+        <span>الزبون</span>
+        <input id="fClient" autocomplete="off">
+      </label>
+      <label class="fld">
+        <span>الوجهة</span>
+        <input id="fDest" autocomplete="off">
+      </label>
+      <div class="two">
+        <label class="fld">
+          <span>المبلغ</span>
+          <input id="fAmount" inputmode="decimal" autocomplete="off">
+        </label>
+        <label class="fld">
+          <span>الدفع عند الاستلام</span>
+          <input id="fCr" inputmode="decimal" autocomplete="off">
+        </label>
+      </div>
+      <div class="two">
+        <label class="fld">
+          <span>الهاتف</span>
+          <input id="fPhone" inputmode="tel" autocomplete="off" class="mono">
+        </label>
+        <label class="fld">
+          <span>التاريخ</span>
+          <input id="fDate" inputmode="numeric" autocomplete="off" class="mono">
+        </label>
+      </div>
+    </div>
+
+    <div class="sheetFoot">
+      <button id="btnDelete" class="btn danger hidden">حذف</button>
+      <button id="btnOut" class="btn warn hidden">خرج</button>
+      <button id="btnBackIn" class="btn warn hidden">إعادته للمخزن</button>
+      <button id="btnSave" class="btn go">حفظ</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script src="vendor/zxing.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,10 @@
+# Octets exacts pour les bibliotheques embarquees : une seule ligne
+# cassee dans vendor/ casse la reconnaissance. Aucune conversion.
+vendor/** binary
+
+* text=auto
+
+*.html text eol=lf
+*.css text eol=lf
+*.js text eol=lf
+*.webmanifest text eol=lf
