@@ -34,6 +34,7 @@
 
   <!-- بطاقة القراءة: تظهر عند النجاح، ثم تختفي تلقائيًا -->
   <div id="flash" class="flash" aria-live="polite">
+    <span id="flashFlags" class="flashFlags"></span>
     <div class="flashNum" id="flashNum">0000000</div>
     <div class="flashRows" id="flashRows"></div>
   </div>
@@ -98,7 +99,7 @@
     <div class="sheetBody">
       <label class="fld">
         <span>رقم التتبع</span>
-        <input id="fTracking" inputmode="numeric" autocomplete="off" class="mono big">
+        <input id="f_tracking" inputmode="numeric" autocomplete="off" class="mono big">
       </label>
 
       <div class="rawBox hidden" id="rawBox">
@@ -106,34 +107,82 @@
         <pre id="rawText"></pre>
       </div>
 
+      <div class="alertsBox hidden" id="alertsBox"></div>
+
+      <!-- النوى: ما يحتاجه العامل في المخزن كل يوم -->
       <label class="fld">
-        <span>الزبون</span>
-        <input id="fClient" autocomplete="off">
+        <span>المرجع</span>
+        <input id="f_reference" inputmode="numeric" autocomplete="off" class="mono">
       </label>
       <label class="fld">
-        <span>الوجهة</span>
-        <input id="fDest" autocomplete="off">
+        <span>المستلم</span>
+        <input id="f_client" autocomplete="off">
+      </label>
+      <label class="fld">
+        <span>الهاتف</span>
+        <input id="f_phone" inputmode="tel" autocomplete="off" class="mono">
+      </label>
+      <label class="fld">
+        <span>المرسل</span>
+        <input id="f_sender" autocomplete="off">
+      </label>
+      <label class="fld">
+        <span>هاتف المرسل</span>
+        <input id="f_senderTel" inputmode="tel" autocomplete="off" class="mono">
       </label>
       <div class="two">
         <label class="fld">
           <span>المبلغ</span>
-          <input id="fAmount" inputmode="decimal" autocomplete="off">
+          <input id="f_amount" inputmode="decimal" autocomplete="off">
         </label>
         <label class="fld">
           <span>الدفع عند الاستلام</span>
-          <input id="fCr" inputmode="decimal" autocomplete="off">
+          <input id="f_cr" inputmode="decimal" autocomplete="off">
         </label>
       </div>
       <div class="two">
         <label class="fld">
-          <span>الهاتف</span>
-          <input id="fPhone" inputmode="tel" autocomplete="off" class="mono">
+          <span>حالة الدفع</span>
+          <input id="f_paid" autocomplete="off">
         </label>
         <label class="fld">
-          <span>التاريخ</span>
-          <input id="fDate" inputmode="numeric" autocomplete="off" class="mono">
+          <span>نوع الطرد</span>
+          <input id="f_parcelType" autocomplete="off">
         </label>
       </div>
+      <div class="two">
+        <label class="fld">
+          <span>وكالة الوصول</span>
+          <input id="f_dest" autocomplete="off">
+        </label>
+        <label class="fld">
+          <span>وكالة الانطلاق</span>
+          <input id="f_agenceFrom" autocomplete="off">
+        </label>
+      </div>
+
+      <!-- هوامش: تُقرأ وتُحفظ، وتُصلَح من اللائحة إن أخطأ التحليل البصري -->
+      <details class="more">
+        <summary>تفاصيل أخرى</summary>
+        <div class="two">
+          <label class="fld">
+            <span>تاريخ الإنشاء</span>
+            <input id="f_date" inputmode="numeric" autocomplete="off" class="mono">
+          </label>
+          <label class="fld">
+            <span>رقم الطرد</span>
+            <input id="f_parcelNo" inputmode="numeric" autocomplete="off" class="mono">
+          </label>
+        </div>
+        <label class="fld">
+          <span>رمز الفرز</span>
+          <input id="f_codeTri" inputmode="numeric" autocomplete="off" class="mono">
+        </label>
+        <label class="fld">
+          <span>ملاحظة</span>
+          <input id="f_remark" autocomplete="off">
+        </label>
+      </details>
     </div>
 
     <div class="sheetFoot">

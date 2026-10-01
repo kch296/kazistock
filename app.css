@@ -197,6 +197,24 @@ button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
   word-break:break-word;max-height:130px;overflow:auto;direction:ltr;text-align:left;
   font-family:ui-monospace,Menlo,Consolas,monospace}
 
+/* تنبيهات الملصق (مواصفة النوع A، القسم 6). لونها التحذيري، ونصّها من I18N
+   بثلاث لغات، فلا يظهر مفتاحٌ خام ولا نصٌّ عربي على واجهة فرنسية. */
+.warnTag{display:inline-block;margin:0 5px 4px 0;padding:3px 8px;border-radius:8px;
+  background:rgba(214,158,46,.16);border:1px solid rgba(214,158,46,.5);
+  color:var(--amber);font-size:11px;font-weight:700;line-height:1.35}
+.alertsBox{margin-bottom:10px}
+.cFlags{margin-top:5px}
+.flashFlags{position:absolute;top:6px;inset-inline-end:10px;font-size:17px;color:var(--amber)}
+
+/* الهوامش مطويّة: تسعة حقول إضافية تكلّف الشاشة، ولا يحتاجها العامل كل يوم. */
+.more{margin-top:4px;border-top:1px solid var(--line);padding-top:8px}
+.more>summary{cursor:pointer;font-size:13px;font-weight:700;color:var(--gray);
+  padding:4px 0 8px;list-style:none}
+.more>summary::-webkit-details-marker{display:none}
+.more>summary::after{content:' ▾';opacity:.6}
+.more[open]>summary::after{content:' ▴'}
+.more[open]>summary{margin-bottom:8px}
+
 .btn{flex:1;height:48px;border-radius:12px;font-size:15px;font-weight:800;background:var(--surface);
   color:var(--ink)}
 .btn.go{background:var(--green);color:#fff}
