@@ -325,11 +325,38 @@ function trackingFromBarcode(raw) {
   const groups = s.match(/\d{7}/g);
   if (groups && groups.length >= 2) {
     // نؤكّد أن الملف منطقي: البادئة قصيرة، والذيل قصير
-    const m = s.match(/^[A-Za-z0-9]{0,3}[-_ ](\d{7})[-_ ](\d{7})[-_ ](\d{2,4})$/);
+    const m = s.match(/^(?:[A-Za-z0-9]{0,5}[-_ ])?(\d{7})[-_ ](\d{7})(?:[-_ ](\d{2,4}))?$/);
     if (m) return m[2];
-    return groups[1];
+    // بنيةٌ مجهولةٌ فيها مجموعتان سباعيتان: **نمتنع عن الاجتهاد**.
+    // الرقمُ يُقرأ حينها من النصّ البصريّ — أبطأُ لكنّه أمانة. والاختيارُ
+    // المجتهِد يُدخل الطرد في خانةٍ باسمٍ خطأ، والعاملُ لا يجد له أصلًا.
+    return null;
   }
   return extractTracking(s);
+}
+
+
+/** حمولةُ الـ QR كما فُكَّت من صورة ملصق حقيقي: `1-9594567-9554519-219`
+ *  — بادئةٌ رقمية، ثم مجموعةٌ هي المرجع، ثم سبعةٌ هي التتبع، ثم لاحقة.
+ *
+ *  وقيمتُها أنّ **المرجع يأتي منها مضبوطًا بالبكسل**: لا حرفًا يقرؤه محرّك
+ *  ولا خطأً فيه. وهو اليوم يُقرأ من منطقةٍ صغيرة يخلط فيها `l` بـ`1`
+ *  و`S` بـ`5` — فالقراءةُ الأدقُّ في الملصق كلّه كانت تُهمَل.
+ *
+ *  ولا نستنتج شكلًا لم يُرَ: بادئةُ حرفٍ (`K-…`) غير المؤكَّد، فنؤخذ منها
+ *  التتبعَ وحده، ويبقى المرجعُ للتحليل البصريّ. */
+const QR_DASH = '[\\-\\u2013\\u2014_ ]';
+const QR_SHAPE = new RegExp('^([A-Za-z]{0,5}\\d{0,3})' + QR_DASH + '(\\d{7})' + QR_DASH +
+  '(\\d{7})(?:' + QR_DASH + '(\\d{1,4}))?$');
+function parseQrPayload(raw) {
+  const s = String(raw || '').trim();
+  const m = s.match(QR_SHAPE);
+  if (!m) return null;
+  return {
+    tracking: m[3],
+    reference: /^\d{1,3}$/.test(m[1]) ? m[1] + '-' + m[2] + '-' + m[3] : '',
+    suffix: m[4] || '',
+  };
 }
 
 /* ─────────────────────────── 4. بيانات الملصق، مواصفة النوع A ─────────────────────
@@ -565,6 +592,38 @@ function extractLabel(parts) {
   // رمز الفرز داخل إطار مستطيل: الموضعُ هو ما يميّزه لا شكلُه. فبلا
   // منطقة يلتقط من سطر المرجع رقمًا لا غير — فنُبقيه للمناطق وحدها.
   return out;
+}
+
+/** دمجُ حمولة الـ QR في الحقول المقروءة بصريًّا.
+ *
+ *  المواصفة القسم 4: **قيمةُ الـ QR تقدّم**. فهي صورةٌ رقميةٌ لا يُخطئ فيها
+ *  حرف، بخلاف محرّكٍ يقرؤه من منطقةٍ صغيرة فيُخطئ — فيقرأ `l` رقمَ `1`
+ *  و`S` رقمَ `5`. فالقراءةُ الأدقُّ في الملصق كلّه كانت تُهمَل.
+ *
+ *  فائدةُ ذلك في المرجعِ قبل التتبّع: الرقمُ سبعةُ أرقامٍ كبيرة يخطئه
+ *  المحرّك قليلًا، والمرجعُ سبعةٌ تسبقها بادئةٌ فيخطئه الحرفُ الواحد خطأً
+ *  واحدًا. وهو أظهرُ ما يُصدَّق في اللائحة، لأنّه المُصدَّر إلى الجدول.
+ *
+ *  وليس هنا تصحيحُ قلم: هو نسخُ ما طُبع كما هو، حرفًا بحرف.
+ *
+ *  وإن لم يأتِ من الـ QR مرجع — بادئةُ حرفٍ مثل `KAZI-`، وهي غير مؤكَّدة
+ *  لأنّ صورةً حقيقيةً واحدةً لا تُعمّم — تبقى القراءةُ البصريةُ هي المصدر،
+ *  ويبقى تنبيهُ `alRef` حارسًا لها. */
+function mergeQr(fields, code) {
+  const f = fields || {};
+  let conflict = false;
+  if (code && code.reference) f.reference = code.reference;
+  /* التعارضُ يُعلَن على **الرقم** وحده، لا على المرجع.
+   *
+   *  رقمان مختلفان يعني إما ملصقين، وإما قراءةً باطلةً كبيرًا — وكلاهما
+   *  يفتح صورةً من جديد فيستطيع العاملُ أن يفعل شيئًا. أما اختلافُ حرفٍ في
+   *  المرجع فلا يُعنى شيئًا: أشيعُ خطأٍ في المحرّك، والـ QR جوابُه،
+   *  فالمرجعُ المكتوب هو الصحيح ولا محلَّ للقرار.
+   *
+   *  والتنبيهُ الذي لا يطلب من العامل شيئًا لا يُنفعه: ينطفئ في العين، فإذا
+   *  جاء نبيهٌ حقيقيٌّ بعده لم يُصدَّق. */
+  if (code && code.tracking && f.tracking && code.tracking !== f.tracking) conflict = true;
+  return { fields: f, conflict };
 }
 
 /* ─────────────────────────── 4b. مسار الانحدار: النص العام ───────────────────
@@ -809,6 +868,7 @@ const engine = {
   ocrState: 'idle',   // idle | loading | ready | failed
   native: null,
   zxing: null,
+  qrReader: null,     // قارئُ QR وحده، يُبنى عند أوّل استعمالٍ ثم يُبقى
 };
 
 function hasNativeBarcode() {
@@ -917,7 +977,10 @@ const BARCODE_GAP_MS = 90;
 const PENDING_TTL_MS = 1600;  // عمر رقم الباركود المنتظر قبل أن يُهمَل
 
 let lastBarcodeTry = 0, lastOcrTry = 0, lastTry = 0;
-let cooldownUntil = 0, lastCommitted = null, pendingTracking = null, pendingAt = 0;
+/* الانتظارُ صار **رمزًا** لا رقمًا: نحتفظ بالمحمولة كلِّها — التتبعُ
+ *  والمرجعُ ونصُّ الرمز — لأنّ الـ QR أَولى ما يُقدَّم. ومن يحفظ رقمًا
+ *  وحده لا يستطيع أن يثبت أنّ ما قُرئ كان مطابقًا. */
+let cooldownUntil = 0, lastCommitted = null, pendingCode = null, pendingAt = 0;
 
 async function startCamera() {
   els.gateNote.classList.remove('bad');
@@ -1048,8 +1111,8 @@ async function tick() {
   lastTry = now;
   if (document.hidden) return;
 
-  if (pendingTracking && now - pendingAt > PENDING_TTL_MS) {
-    pendingTracking = null;   // الباركود انتظر طويلًا: يُهمَل
+  if (pendingCode && now - pendingAt > PENDING_TTL_MS) {
+    pendingCode = null;   // الباركود انتظر طويلًا: يُهمَل
   }
 
   // 1) الباركود — سريع جدًا، ودقيق بلا أي حال
@@ -1069,33 +1132,125 @@ async function tick() {
   }
 }
 
+/* **لقطةٌ واحدة** تُستعمل للقراءةين، فالرمزان يُقرآن من اللحظة نفسها
+ *  فيكونان متكافئين، ولا تُلتقط ثانيةٌ إضافية كل ٩٠ جزءًا من الثانية. */
 async function readBarcode() {
-  // 1) إن توفّر مكشّف المتصفح فهو الأسرع والأدق
+  const f = grabRoi(1000, 'bar');
+  if (!f) return;
+  // 1) الـ QR من منطقته: يتقدّم **دائمًا**، لا بحسب أيّهما يعود أوّلًا
+  const q = qrFromZone(f);
+  if (q) { onBarcode(q, 'qr'); return; }
+  // 2) مكشّف المتصفح على الفيديو: أسرعُ وأدقّ، ويعرف نوع الرمز
   if (engine.native) {
     try {
       const found = await engine.native.detect(els.video);
-      if (found && found.length && found[0].rawValue) { onBarcode(found[0].rawValue); return; }
+      if (found && found.length && found[0].rawValue) {
+        onBarcode(found[0].rawValue, found[0].format === 'qr_code' ? 'qr' : 'barcode');
+        return;
+      }
     } catch (e) { /* إطار غير صالح: نكمل بالمحرّك البديل */ }
   }
-  // 2) ZXing المضمَّن: يعمل في كل المتصفحات، بمن فيها التي بلا مكشّف
-  if (engine.zxing) onBarcode(zxingFromFrame());
+  // 3) ZXing المضمَّن على الإطار كلّه: يعمل في كل المتصفحات
+  const r = zxingResult(f);
+  if (r && r.text) onBarcode(r.text, r.isQr ? 'qr' : 'barcode');
 }
 
-function zxingFromFrame() {
-  const f = grabRoi(1000, 'zx');
-  if (!f) return null;
+function zxingResult(f) {
+  if (!f || !engine.zxing) return null;
   try {
     // مصفوفة الإضاءة جاهزة من enhance(): ZXing يقبلها كما هي
     const src = new window.ZXing.RGBLuminanceSource(f.lum, f.w, f.h);
     const bmp = new window.ZXing.BinaryBitmap(new window.ZXing.HybridBinarizer(src));
     const res = engine.zxing.decodeWithState(bmp);
-    return res ? res.getText() : null;
+    if (!res) return null;
+    // هل هو QR أم باركودٌ خطّي؟ فنُعلنه بدل أن نخمّن من ترتيب الوصول.
+    // والأولويةُ صارت صريحة: منطقُ الـ QR يسبق، وهذا يفيد حصرًا حين
+    // يقرأ الإطارُ كلَّه.
+    let isQr = false;
+    try {
+      isQr = isQrFormat(res.getBarcodeFormat(), window.ZXing);
+    } catch (e) { /* مكتبةٌ لا تُعلن النوع: يُقرأ الرقم وحده */ }
+    return { text: res.getText(), isQr };
   } catch (e) {
     return null;
   } finally {
     try { engine.zxing.reset(); } catch (e) { /* لا شيء */ }
   }
 }
+
+/** قارئُ الـ QR **من منطقته في الملصق**، بقارئٍ لا يقبل إلا رمزًا مربعًا.
+ *
+ *  الملصقُ يحمل رمزين، والإطارُ كلّه يُقرأ مرّة، فلا يضمن أحدٌ أيّهما يعود
+ *  أوّلًا — فالقرارُ متروكٌ للحظّ. والقارئُ الخاصّ يجعل الـ QR يتقدّم
+ *  **دائمًا**.
+ *
+ *  ولا `enhance` ثانية: الإطارُ الخارجُ محسَّنٌ سلفًا في `grabRoi`،
+ *  والثانيةُ هنا تكلّفُ تمريرةً كاملة على البكسل كل ٩٠ جزءًا من الثانية.
+ *  ولا أثرَ رجعيّ: إن أخطأ الإطارُ عن موضعه عادت القراءةُ الشاملةُ
+ *  فتفحصه — فما كان يعمل يبقى يعمل. */
+function cropQr(fr, z, i) {
+  const sx = Math.round(fr.w * z.x[0] / 100), sy = Math.round(fr.h * z.y[0] / 100);
+  const sw = Math.round(fr.w * (z.x[1] - z.x[0]) / 100);
+  const sh = Math.round(fr.h * (z.y[1] - z.y[0]) / 100);
+  if (sw < 24 || sh < 24) return null;
+  const k = Math.min(3, Math.max(1, 340 / sw));
+  const w = Math.round(sw * k), h = Math.round(sh * k);
+  const c = grabCanvas(w, h, 'q' + i);
+  const ctx = c.getContext('2d', { willReadFrequently: true });
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(fr.canvas, sx, sy, sw, sh, 0, 0, w, h);
+  return c;
+}
+
+/** `RGBLuminanceSource` de ce bundle n'accepte pas les octets RGBA :
+ *  il lui faut un tableau de **lumiere**, 0 noir a 255 blanc. C'est etabli
+ *  par la bibliotheque elle-meme (test `kazistock-qr.js`), pas suppose —
+ *  car la faute ne se voit pas sur un canvas de laboratoire : elle ne se
+ *  voit que sur la camera.
+ *
+ *  Et la ponderation est ici sans importance : l'image sort de `enhance()`,
+ *  elle est deja grise, donc les trois canaux portent la meme valeur. */
+function luminance(px) {
+  const lum = new Int32Array(px.length >> 2);
+  for (let i = 0, p = 0; i < px.length; i += 4, p++) {
+    lum[p] = (px[i] * 77 + px[i + 1] * 150 + px[i + 2] * 29) >> 8;
+  }
+  return lum;
+}
+
+/** هل هذا الرمز مربعٌ؟ `getBarcodeFormat()` rend un **nombre** — `QR_CODE`
+ *  vaut 11, `MICRO_QR_CODE` 17 — لا كائنًا له اسم. فالمقارنةُ بالرقم لا
+ *  بالاسم: `String(11)` لا يشبه `QR_CODE` أبدًا، واسمُ الكائن `name`
+ *  غيرُ موجود، فكان كلُّ فحصٍ بالاسم يجيب « لا » دائمًا.
+ *
+ *  وهي دالّةٌ صافيةٌ تُختبر وحدها، لأنّ الخطأ فيها لا يظهر إلا على صورة. */
+function isQrFormat(fmt, ZX) {
+  return fmt === ZX.BarcodeFormat.QR_CODE ||
+         fmt === ZX.BarcodeFormat.MICRO_QR_CODE;
+}
+
+function qrFromZone(f) {
+  if (!window.ZXing || !window.ZXing.QRCodeReader) return null;
+  // القارئُ حالةٌ بلا حالة: يُبنى مرّةً لا كل تسعين جزءًا من الثانية
+  if (!engine.qrReader) engine.qrReader = new window.ZXing.QRCodeReader();
+  const i = LABEL_ZONES.findIndex(z => z.qr);
+  if (i < 0) return null;
+  const crop = cropQr(f, LABEL_ZONES[i], i);
+  if (!crop) return null;
+  try {
+    const ctx = crop.getContext('2d', { willReadFrequently: true });
+    const img = ctx.getImageData(0, 0, crop.width, crop.height);
+    const src = new window.ZXing.RGBLuminanceSource(luminance(img.data), crop.width, crop.height);
+    const bmp = new window.ZXing.BinaryBitmap(new window.ZXing.HybridBinarizer(src));
+    const hints = new Map();
+    hints.set(window.ZXing.DecodeHintType.TRY_HARDER, true);
+    const res = engine.qrReader.decode(bmp, hints);
+    return res ? res.getText() : null;
+  } catch (e) {
+    return null;   // لا رمزَ هنا: نُكمل بالإطار كلّه
+  }
+}
+
 
 async function readOcr() {
   const zones = grabZones();
@@ -1115,14 +1270,30 @@ async function readOcr() {
 
 /* ─────────────────────────── 7. نقطة الالتقاء: الحفظ ─────────────────────────── */
 
-function onBarcode(raw) {
-  const t = trackingFromBarcode(raw);
+/* المواصفة القسم 4: **قيمةُ الـ QR تقدّم**. فالنوعُ يُعلَن الآن بدل أن
+ *  يُخمَّن، والأولويةُ صريحة: باركودٌ خطّيّ لا يُسقط QRَ واقفًا. */
+function onBarcode(raw, kind) {
+  const text = String(raw || '').trim();
+  if (!text) return;
+  const qr = kind === 'qr' ? parseQrPayload(text) : null;
+  const t = (qr && qr.tracking) || trackingFromBarcode(text);
   if (!t) return;
+  const cand = {
+    tracking: t,
+    reference: qr ? qr.reference : '',
+    payload: text,
+    isQr: kind === 'qr',
+  };
+  if (pendingCode && pendingCode.isQr && !cand.isQr) return;
   if (engine.ocrState === 'ready') {
-    // ننتظر التحليل البصري: هو سيأتي ببقية البيانات، ورقم التتبع دقيق هنا
-    pendingTracking = t; pendingAt = Date.now();
+    // ننتظر التحليل البصري: هو سيأتي ببقية البيانات، ورمزُ التتبع أدقّ هنا
+    pendingCode = cand; pendingAt = Date.now();
   } else {
-    if (canCommit(t)) commit(t, emptyFields(), '', 'barcode', false);
+    if (canCommit(t)) {
+      const f = emptyFields();
+      if (qr && qr.reference) f.reference = qr.reference;
+      commit(t, f, text, 'barcode', false);
+    }
   }
 }
 
@@ -1136,18 +1307,22 @@ function onOcr(text) {
 /** نقطة الالتقاط الوحيدة: مناطقُ التسع، أو نصٌّ واحد في مسار الانحدار. */
 function onZones(parts) {
   const fields = extractLabel(parts);
-  const raw = parts.map(p => (p.text ? String(p.text).trim() : '')).filter(Boolean).join('\n');
+  const code = pendingCode;
+  const read = (parts || []).map(p => (p.text ? String(p.text).trim() : '')).filter(Boolean);
+  // حمولةُ الرمز أوّلُ `raw`: فما طُبع على الملصق يبقى محفوظًا، وهو
+  // الضمانةُ الوحيدةُ إذا كان ما قُرئ خطأً. والقراءةُ البصرية تحته.
+  const raw = (code && code.payload ? [code.payload] : []).concat(read).join('\n');
   const fromText = fields.tracking || null;
 
   /* المواصفة القسم 4: **قيمة الـ QR تقدّم على قراءة النص**. رقمٌ من صورة
    * رقمية لا يُخطئ، بخلاف حرفٍ يقرأه محرّك. وكان الكود يفعل العكس. */
-  const t = pendingTracking || fromText;
+  const t = (code && code.tracking) || fromText;
   if (!t) return;
   if (!canCommit(t)) return;
 
-  const qrConflict = !!(pendingTracking && fromText && pendingTracking !== fromText);
-  const src = pendingTracking && fromText ? 'barcode+ocr' : (fromText ? 'ocr' : 'barcode');
-  commit(t, fields, raw, src, qrConflict);
+  const merged = mergeQr(fields, code);
+  const src = code && fromText ? 'barcode+ocr' : (fromText ? 'ocr' : 'barcode');
+  commit(t, merged.fields, raw, src, merged.conflict);
 }
 
 /** يمنع تكرار الملصق الواحد: نفس الرقم، أو نافذة تبريد، أو إدخال مزدوج. */
@@ -1161,7 +1336,7 @@ function canCommit(t) {
 
 function commit(tracking, fields, raw, src, qrConflict) {
   lastCommitted = tracking;
-  pendingTracking = null;
+  pendingCode = null;
   cooldownUntil = Date.now() + COOLDOWN_MS;
 
   const rec = Object.assign(emptyFields(), fields, {
