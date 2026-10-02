@@ -14,7 +14,7 @@
 /* v2 : قراءة الملصق بمناطقه (المواصفة القسم 3)، ومحرك القراءة صار يُحمَّل
    فعلًا — كان في قائمة التخزين المسبق فقط فلا يعمل. ترقيم النسخة هو ما
    يجعل عامل الخدمة يمسح الذاكرة القديمة ويجلب الجديد. */
-const VER = 'kazistock-v2';
+const VER = 'kazistock-v3';
 const CORE = 'vendor/tesseract/core/tesseract-core-simd-lstm.wasm.js';
 
 const SHELL = [

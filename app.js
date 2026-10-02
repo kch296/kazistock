@@ -438,8 +438,8 @@ function isPhoneLine(line) {
   return line.replace(/[\d\s.\-\/()]/g, '').length <= 2;
 }
 const PERSON_HEAD = /^(exp[eé]diteur|destinataire|client|nom)\b/i;
-const PERSON_STRIP = /^\s*(exp[eé]diteur|destinataire|client|nom|tel(?:e?phone)?|t\.?\s?l\.?)\s*[:.]?\s*/i;
-const FIELD_TITLE = /exp[eé]diteur|destinataire|client|nom|destination|adresse|address|tel|telephone|montant|total|c\.?\s?r\b|valeur|prix|remarque|tracking|r[eé]f[eé]rence|colis|type|pay[eé]|agence|statut|cr[eé]e/i;
+const PERSON_STRIP = /^\s*(exp[eé]diteur|destinataire|client|nom|t[eé]l(?:e?phone)?|t\.?\s?l)\b\s*[:.]?\s*/i;
+const FIELD_TITLE = /(?:exp[eé]diteur|destinataire|client|nom|destination|adresse|address|t[eé]l(?:e?phone)?|montant|total|c\.?\s?r|valeur|prix|remarque|tracking|r[eé]f[eé]rence|colis|type|pay[eé]|agence|statut|cr[eé]e)(?![A-Za-zÀ-ß])/i;
 
 /** « Expéditeur » ثم الاسم (سطر أو سطران) ثم الهاتف. إن ظهر عنوانُ شخصٍ
  *  ثانٍ فالمنطقة تتضمّن عمودين — عندئذ نتوقّف، فلا يُلحق اسمُ المستلم
